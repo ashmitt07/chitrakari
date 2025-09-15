@@ -22,7 +22,7 @@ const ctx = canvas.getContext('2d');
 let drawing=false;
 let undoStack=[], redoStack=[];
 
-// MQTT connect
+// MQTT connect using WebSocket
 const client = mqtt.connect('wss://broker.hivemq.com:8000/mqtt');
 const topic = 'esp32/oledCanvas';
 client.on('connect', ()=>console.log("Connected to MQTT broker"));
@@ -38,7 +38,7 @@ canvas.addEventListener('mousemove', (e)=>{
   ctx.fillRect(x, y, 1, 1);
 });
 
-// Save canvas state for undo
+// Save state for undo
 function saveState(){
   undoStack.push(ctx.getImageData(0,0,canvas.width, canvas.height));
 }
