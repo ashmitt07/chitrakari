@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Cloud OLED Canvas</title>
+<style>
+canvas{border:1px solid black;}
+button{margin:5px;}
+</style>
+</head>
+<body>
+<h2>Cloud-based ESP32 OLED Drawing</h2>
+<canvas id="canvas" width="128" height="64"></canvas><br>
+<button onclick="sendToESP()">Send</button>
+<button onclick="clearCanvas()">Clear</button>
+<button onclick="undo()">Undo</button>
+<button onclick="redo()">Redo</button>
+
+<script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+<script>
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+let drawing=false;
+let undoStack=[], redoStack=[];
+
+// MQTT connect
+const client = mqtt.connect('wss://broker.hivemq.com:8000/mqtt');
+const topic = 'esp32/oledCanvas';
+client.on('connect', ()=>console.log("Connected to MQTT broker"));
+
+// Drawing
+canvas.addEventListener('mousedown', ()=>drawing=true);
+canvas.addEventListener('mouseup', ()=>{drawing=false; saveState();});
+canvas.addEventListener('mousemove', (e)=>{
+  if(!drawing) return;
+  const rect = canvas.getBoundingClientRect();
+  const x = Math.floor(e.clientX - rect.left);
+  const y = Math.floor(e.clientY - rect.top);
+  ctx.fillRect(x, y, 1, 1);
+});
+
+// Save canvas state for undo
+function saveState(){
+  undoStack.push(ctx.getImageData(0,0,canvas.width, canvas.height));
+}
+
+// Undo
+function undo(){
+  if(undoStack.length>0){
+    redoStack.push(ctx.getImageData(0,0,canvas.width, canvas.height));
+    let img = undoStack.pop();
+    ctx.putImageData(img,0,0);
+  }
+}
+
+// Redo
+function redo(){
+  if(redoStack.length>0){
+    undoStack.push(ctx.getImageData(0,0,canvas.width, canvas.height));
+    let img = redoStack.pop();
+    ctx.putImageData(img,0,0);
+  }
+}
+
+// Clear
+function clearCanvas(){
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  client.publish(topic,"CLEAR");
+}
+
+// Send
+function sendToESP(){
+  let data="";
+  const imgData = ctx.getImageData(0,0,canvas.width,canvas.height);
+  for(let y=0;y<canvas.height;y++){
+    for(let x=0;x<canvas.width;x++){
+      let index=(y*canvas.width+x)*4;
+      if(imgData.data[index]>0) data+=x+","+y+";";
+    }
+  }
+  client.publish(topic,data);
+}
+</script>
+</body>
+</html>
