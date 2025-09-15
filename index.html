@@ -1,14 +1,14 @@
 <!DOCTYPE html>
 <html>
 <head>
-<title>Cloud OLED Canvas</title>
+<title>ESP32 OLED Drawing</title>
 <style>
-canvas{border:1px solid black;}
-button{margin:5px;}
+canvas{border:1px solid black;cursor:crosshair;}
+button{margin:5px;padding:5px 15px;}
 </style>
 </head>
 <body>
-<h2>Cloud-based ESP32 OLED Drawing</h2>
+<h2>ESP32 OLED Drawing</h2>
 <canvas id="canvas" width="128" height="64"></canvas><br>
 <button onclick="sendToESP()">Send</button>
 <button onclick="clearCanvas()">Clear</button>
@@ -22,14 +22,14 @@ const ctx = canvas.getContext('2d');
 let drawing=false;
 let undoStack=[], redoStack=[];
 
-// MQTT connect using WebSocket
+// MQTT connect
 const client = mqtt.connect('wss://broker.hivemq.com:8000/mqtt');
 const topic = 'esp32/oledCanvas';
-client.on('connect', ()=>console.log("Connected to MQTT broker"));
+client.on('connect', ()=>console.log("✅ Connected to MQTT broker"));
 
-// Drawing
-canvas.addEventListener('mousedown', ()=>drawing=true);
-canvas.addEventListener('mouseup', ()=>{drawing=false; saveState();});
+// Mouse events
+canvas.addEventListener('mousedown', ()=>{drawing=true; saveState();});
+canvas.addEventListener('mouseup', ()=>drawing=false);
 canvas.addEventListener('mousemove', (e)=>{
   if(!drawing) return;
   const rect = canvas.getBoundingClientRect();
@@ -38,15 +38,16 @@ canvas.addEventListener('mousemove', (e)=>{
   ctx.fillRect(x, y, 1, 1);
 });
 
-// Save state for undo
+// Save state for Undo
 function saveState(){
-  undoStack.push(ctx.getImageData(0,0,canvas.width, canvas.height));
+  undoStack.push(ctx.getImageData(0,0,canvas.width,canvas.height));
+  redoStack = [];
 }
 
 // Undo
 function undo(){
   if(undoStack.length>0){
-    redoStack.push(ctx.getImageData(0,0,canvas.width, canvas.height));
+    redoStack.push(ctx.getImageData(0,0,canvas.width,canvas.height));
     let img = undoStack.pop();
     ctx.putImageData(img,0,0);
   }
@@ -55,7 +56,7 @@ function undo(){
 // Redo
 function redo(){
   if(redoStack.length>0){
-    undoStack.push(ctx.getImageData(0,0,canvas.width, canvas.height));
+    undoStack.push(ctx.getImageData(0,0,canvas.width,canvas.height));
     let img = redoStack.pop();
     ctx.putImageData(img,0,0);
   }
@@ -67,7 +68,7 @@ function clearCanvas(){
   client.publish(topic,"CLEAR");
 }
 
-// Send
+// Send to ESP32
 function sendToESP(){
   let data="";
   const imgData = ctx.getImageData(0,0,canvas.width,canvas.height);
@@ -78,6 +79,7 @@ function sendToESP(){
     }
   }
   client.publish(topic,data);
+  console.log("📤 Sent to ESP32:", data.length, "bytes");
 }
 </script>
 </body>
