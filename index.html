@@ -4,18 +4,22 @@
 <meta charset="UTF-8">
 <title>TX ESP32 Control</title>
 <style>
-/* ==== Saara CSS wahi rahega ==== */
 body {
     margin:0;
     padding:20px;
-    font-family:'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    font-family:'Segoe UI', sans-serif;
     background:#0f172a;
     color:#fff;
     text-align:center;
 }
-h2 { font-size:42px; margin-bottom:25px; color:#f0f0f0; text-shadow:0 2px 5px rgba(0,0,0,0.5);}
+h2 { font-size:42px; margin-bottom:25px; color:#f0f0f0;}
 h3 { font-size:28px; margin:20px 0 10px 0; color:#ddd;}
-/* (yaha same CSS dalna jo tune bheja hai, maine short kiya) */
+.card { display:inline-block; background:#1e293b; margin:15px; padding:20px; border-radius:15px; }
+.icon { font-size:40px; margin-bottom:10px;}
+.toggle-btn { background:#3b82f6; color:#fff; border:none; padding:10px 20px; border-radius:8px; cursor:pointer;}
+.timer-input select { margin:0 2px;}
+.timer-display { margin-top:10px; font-size:14px; color:#aaa;}
+.readings h1 { margin:10px 0;}
 </style>
 </head>
 <body>
@@ -23,46 +27,20 @@ h3 { font-size:28px; margin:20px 0 10px 0; color:#ddd;}
 <h2>Transmitter Control</h2>
 
 <div class="container">
-  <!-- Relay 1 -->
   <div class="card">
     <div id="icon1" class="icon">💡</div>
     <div class="label">ROSHNI YANTRA 1</div>
-    <button id="b1" class="toggle-btn" onclick="toggle(1)">Toggle</button>
-    <div class="timer-input">
-      <select id="h1"></select> : 
-      <select id="m1"></select> : 
-      <select id="s1"></select>
-      <button onclick="setTimer(1)">Set</button>
-    </div>
-    <div id="d1" class="timer-display"></div>
+    <button onclick="toggle(1)">Toggle</button>
   </div>
-
-  <!-- Relay 2 -->
   <div class="card">
     <div id="icon2" class="icon">💡</div>
     <div class="label">ROSHNI YANTRA 2</div>
-    <button id="b2" class="toggle-btn" onclick="toggle(2)">Toggle</button>
-    <div class="timer-input">
-      <select id="h2"></select> : 
-      <select id="m2"></select> : 
-      <select id="s2"></select>
-      <button onclick="setTimer(2)">Set</button>
-    </div>
-    <div id="d2" class="timer-display"></div>
+    <button onclick="toggle(2)">Toggle</button>
   </div>
-
-  <!-- Relay 3 -->
   <div class="card">
     <div id="icon3" class="icon">🌀</div>
     <div class="label">Pankha</div>
-    <button id="b3" class="toggle-btn" onclick="toggle(3)">Toggle</button>
-    <div class="timer-input">
-      <select id="h3"></select> : 
-      <select id="m3"></select> : 
-      <select id="s3"></select>
-      <button onclick="setTimer(3)">Set</button>
-    </div>
-    <div id="d3" class="timer-display"></div>
+    <button onclick="toggle(3)">Toggle</button>
   </div>
 </div>
 
@@ -73,37 +51,78 @@ h3 { font-size:28px; margin:20px 0 10px 0; color:#ddd;}
 </div>
 
 <h3>OLED Drawing</h3>
-<canvas id="oledCanvas" width="128" height="64" style="width:1024px; height:512px;"></canvas>
-<div class="oled-buttons">
+<canvas id="oledCanvas" width="128" height="64" style="border:1px solid white; width:512px; height:256px;"></canvas>
+<div>
   <button onclick="sendDrawing()">Send</button>
   <button onclick="clearCanvas()">Clear</button>
   <button onclick="undo()">Undo</button>
   <button onclick="redo()">Redo</button>
 </div>
 
-<div class="footer-space"></div>
-
 <script>
-// === yaha same JavaScript dalna jo tune bheja tha ===
-
-// 🚨 IMPORTANT: ESP32 IP address yaha fix karna hoga
-// Jaise agar tera ESP32 ka IP 192.168.1.105 hai:
-const ESP32_IP = "http://192.168.0.102";
+// === ESP32 ka IP yaha daalna ===
+const ESP32_IP = "http://192.168.1.105";  // replace with your ESP32 IP
 
 function toggle(n){
-  fetch(`${ESP32_IP}/toggle?led=${n}`)
-    .then(()=>fetch(`${ESP32_IP}/status`)
-      .then(r=>r.json())
-      .then(j=>{
-        let ledState = n===1 ? j.led1 : n===2 ? j.led2 : j.led3;
-        if(!ledState) resetTimer(n);
-      })
-    );
+  fetch(`${ESP32_IP}/toggle?led=${n}`);
 }
 
-// ✅ Baaki tera pura JS code jaisa tha waise hi dal de
-</script>
+// live sensor update
+setInterval(()=>{
+  fetch(`${ESP32_IP}/status`)
+    .then(r=>r.json())
+    .then(j=>{
+      document.getElementById("temp").innerText = j.temp;
+      document.getElementById("hum").innerText = j.hum;
+      document.getElementById("gas").innerText = j.gas;
+    });
+},2000);
 
+// ===== Canvas Drawing =====
+let canvas = document.getElementById("oledCanvas");
+let ctx = canvas.getContext("2d");
+let drawing = false;
+let points = [];
+let undoStack = [], redoStack = [];
+
+canvas.addEventListener("mousedown", ()=>drawing=true);
+canvas.addEventListener("mouseup", ()=>{drawing=false; undoStack.push([...points]);});
+canvas.addEventListener("mousemove", e=>{
+  if(!drawing) return;
+  let rect = canvas.getBoundingClientRect();
+  let x = Math.floor((e.clientX-rect.left)/rect.width*128);
+  let y = Math.floor((e.clientY-rect.top)/rect.height*64);
+  ctx.fillStyle="white";
+  ctx.fillRect(x,y,1,1);
+  points.push({x,y});
+});
+
+function sendDrawing(){
+  fetch(`${ESP32_IP}/draw`,{
+    method:"POST",
+    headers:{"Content-Type":"application/json"},
+    body:JSON.stringify(points)
+  });
+}
+function clearCanvas(){
+  ctx.clearRect(0,0,128,64);
+  points=[];
+  fetch(`${ESP32_IP}/clear`);
+}
+function undo(){
+  if(undoStack.length==0) return;
+  redoStack.push(undoStack.pop());
+  ctx.clearRect(0,0,128,64);
+  points = undoStack.flat();
+  points.forEach(p=>ctx.fillRect(p.x,p.y,1,1));
+}
+function redo(){
+  if(redoStack.length==0) return;
+  let redoPts = redoStack.pop();
+  undoStack.push(redoPts);
+  redoPts.forEach(p=>ctx.fillRect(p.x,p.y,1,1));
+  points = undoStack.flat();
+}
+</script>
 </body>
 </html>
-
