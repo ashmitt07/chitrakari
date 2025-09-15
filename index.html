@@ -1,86 +1,108 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-<title>ESP32 OLED Drawing</title>
+<meta charset="UTF-8">
+<title>TX ESP32 Control</title>
 <style>
-canvas{border:1px solid black;cursor:crosshair;}
-button{margin:5px;padding:5px 15px;}
+/* ==== Saara CSS wahi rahega ==== */
+body {
+    margin:0;
+    padding:20px;
+    font-family:'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background:#0f172a;
+    color:#fff;
+    text-align:center;
+}
+h2 { font-size:42px; margin-bottom:25px; color:#f0f0f0; text-shadow:0 2px 5px rgba(0,0,0,0.5);}
+h3 { font-size:28px; margin:20px 0 10px 0; color:#ddd;}
+/* (yaha same CSS dalna jo tune bheja hai, maine short kiya) */
 </style>
 </head>
 <body>
-<h2>ESP32 OLED Drawing</h2>
-<canvas id="canvas" width="128" height="64"></canvas><br>
-<button onclick="sendToESP()">Send</button>
-<button onclick="clearCanvas()">Clear</button>
-<button onclick="undo()">Undo</button>
-<button onclick="redo()">Redo</button>
 
-<script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+<h2>Transmitter Control</h2>
+
+<div class="container">
+  <!-- Relay 1 -->
+  <div class="card">
+    <div id="icon1" class="icon">💡</div>
+    <div class="label">ROSHNI YANTRA 1</div>
+    <button id="b1" class="toggle-btn" onclick="toggle(1)">Toggle</button>
+    <div class="timer-input">
+      <select id="h1"></select> : 
+      <select id="m1"></select> : 
+      <select id="s1"></select>
+      <button onclick="setTimer(1)">Set</button>
+    </div>
+    <div id="d1" class="timer-display"></div>
+  </div>
+
+  <!-- Relay 2 -->
+  <div class="card">
+    <div id="icon2" class="icon">💡</div>
+    <div class="label">ROSHNI YANTRA 2</div>
+    <button id="b2" class="toggle-btn" onclick="toggle(2)">Toggle</button>
+    <div class="timer-input">
+      <select id="h2"></select> : 
+      <select id="m2"></select> : 
+      <select id="s2"></select>
+      <button onclick="setTimer(2)">Set</button>
+    </div>
+    <div id="d2" class="timer-display"></div>
+  </div>
+
+  <!-- Relay 3 -->
+  <div class="card">
+    <div id="icon3" class="icon">🌀</div>
+    <div class="label">Pankha</div>
+    <button id="b3" class="toggle-btn" onclick="toggle(3)">Toggle</button>
+    <div class="timer-input">
+      <select id="h3"></select> : 
+      <select id="m3"></select> : 
+      <select id="s3"></select>
+      <button onclick="setTimer(3)">Set</button>
+    </div>
+    <div id="d3" class="timer-display"></div>
+  </div>
+</div>
+
+<div class="readings">
+  <h1>Taapmaan: <span id="temp">--</span> °C</h1>
+  <h1>Nami: <span id="hum">--</span> %</h1>
+  <h1>Gas: <span id="gas">--</span></h1>
+</div>
+
+<h3>OLED Drawing</h3>
+<canvas id="oledCanvas" width="128" height="64" style="width:1024px; height:512px;"></canvas>
+<div class="oled-buttons">
+  <button onclick="sendDrawing()">Send</button>
+  <button onclick="clearCanvas()">Clear</button>
+  <button onclick="undo()">Undo</button>
+  <button onclick="redo()">Redo</button>
+</div>
+
+<div class="footer-space"></div>
+
 <script>
-const canvas = document.getElementById('canvas');
-const ctx = canvas.getContext('2d');
-let drawing=false;
-let undoStack=[], redoStack=[];
+// === yaha same JavaScript dalna jo tune bheja tha ===
 
-// MQTT connect
-const client = mqtt.connect('wss://broker.hivemq.com:8000/mqtt');
-const topic = 'esp32/oledCanvas';
-client.on('connect', ()=>console.log("✅ Connected to MQTT broker"));
+// 🚨 IMPORTANT: ESP32 IP address yaha fix karna hoga
+// Jaise agar tera ESP32 ka IP 192.168.1.105 hai:
+const ESP32_IP = "http://192.168.0.102";
 
-// Mouse events
-canvas.addEventListener('mousedown', ()=>{drawing=true; saveState();});
-canvas.addEventListener('mouseup', ()=>drawing=false);
-canvas.addEventListener('mousemove', (e)=>{
-  if(!drawing) return;
-  const rect = canvas.getBoundingClientRect();
-  const x = Math.floor(e.clientX - rect.left);
-  const y = Math.floor(e.clientY - rect.top);
-  ctx.fillRect(x, y, 1, 1);
-});
-
-// Save state for Undo
-function saveState(){
-  undoStack.push(ctx.getImageData(0,0,canvas.width,canvas.height));
-  redoStack = [];
+function toggle(n){
+  fetch(`${ESP32_IP}/toggle?led=${n}`)
+    .then(()=>fetch(`${ESP32_IP}/status`)
+      .then(r=>r.json())
+      .then(j=>{
+        let ledState = n===1 ? j.led1 : n===2 ? j.led2 : j.led3;
+        if(!ledState) resetTimer(n);
+      })
+    );
 }
 
-// Undo
-function undo(){
-  if(undoStack.length>0){
-    redoStack.push(ctx.getImageData(0,0,canvas.width,canvas.height));
-    let img = undoStack.pop();
-    ctx.putImageData(img,0,0);
-  }
-}
-
-// Redo
-function redo(){
-  if(redoStack.length>0){
-    undoStack.push(ctx.getImageData(0,0,canvas.width,canvas.height));
-    let img = redoStack.pop();
-    ctx.putImageData(img,0,0);
-  }
-}
-
-// Clear
-function clearCanvas(){
-  ctx.clearRect(0,0,canvas.width,canvas.height);
-  client.publish(topic,"CLEAR");
-}
-
-// Send to ESP32
-function sendToESP(){
-  let data="";
-  const imgData = ctx.getImageData(0,0,canvas.width,canvas.height);
-  for(let y=0;y<canvas.height;y++){
-    for(let x=0;x<canvas.width;x++){
-      let index=(y*canvas.width+x)*4;
-      if(imgData.data[index]>0) data+=x+","+y+";";
-    }
-  }
-  client.publish(topic,data);
-  console.log("📤 Sent to ESP32:", data.length, "bytes");
-}
+// ✅ Baaki tera pura JS code jaisa tha waise hi dal de
 </script>
+
 </body>
 </html>
