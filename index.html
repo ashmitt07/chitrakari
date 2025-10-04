@@ -1,391 +1,821 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<title>TX ESP32 Control</title>
-<style>
-/* ===== Global Styles ===== */
-body {
-    margin:0;
-    padding:20px;
-    font-family:'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    background:#0f172a;
-    color:#fff;
-    text-align:center;
-}
-h2 {
-    font-size:42px;
-    margin-bottom:25px;
-    color:#f0f0f0;
-    text-shadow:0 2px 5px rgba(0,0,0,0.5);
-}
-h3 {
-    font-size:28px;
-    margin:20px 0 10px 0;
-    color:#ddd;
-}
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Home Control</title>
+    <style>
+        :root {
+            --primary: #3b82f6;
+            --primary-dark: #2563eb;
+            --secondary: #8b5cf6;
+            --success: #10b981;
+            --danger: #ef4444;
+            --warning: #f59e0b;
+            --dark: #1e293b;
+            --darker: #0f172a;
+            --light: #f8fafc;
+            --gray: #64748b;
+        }
 
-/* ===== Card Container ===== */
-.container {
-    display:flex;
-    justify-content:center;
-    flex-wrap:wrap;
-    gap:25px;
-    margin-bottom:40px;
-}
-.card {
-    background: linear-gradient(145deg, #1f2937, #111827);
-    border-radius:20px;
-    padding:25px 20px;
-    width:250px;
-    box-shadow:0 10px 25px rgba(0,0,0,0.6);
-    text-align:center;
-    transition: transform 0.3s, box-shadow 0.3s;
-}
-.card:hover {
-    transform: translateY(-8px);
-    box-shadow:0 15px 30px rgba(0,0,0,0.7);
-}
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
 
-/* ===== Icons & Labels ===== */
-.card .icon {
-    font-size:50px;
-    margin-bottom:12px;
-    transition:all 0.2s;
-}
-.card .label {
-    font-size:20px;
-    font-weight:bold;
-    margin-bottom:15px;
-}
-.icon.on {
-    color:#ffd166;
-    text-shadow:0 0 15px #ffd166;
-}
+        body {
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            background: linear-gradient(135deg, var(--darker), #1e1b4b);
+            color: var(--light);
+            min-height: 100vh;
+            padding: 20px;
+        }
 
-/* ===== Toggle Buttons ===== */
-button {
-    font-size:18px;
-    padding:10px 0;
-    border-radius:10px;
-    cursor:pointer;
-    border:none;
-    width:100%;
-    color:#fff;
-    transition:0.3s;
-}
-button.toggle-btn {
-    background:#4CAF50;
-}
-button.toggle-btn:hover {
-    background:#45a049;
-}
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
 
-/* ===== Timer ===== */
-.timer-input {
-    display:flex;
-    justify-content:center;
-    gap:5px;
-    align-items:center;
-    margin-top:10px;
-}
-.timer-input select {
-    padding:5px;
-    border-radius:6px;
-    border:none;
-    background:#1f2937;
-    color:#fff;
-    font-size:16px;
-    cursor:pointer;
-}
-.timer-input button {
-    background: #fff;
-    color: #3b82f6;
-    padding: 5px 10px;
-    border-radius: 6px;
-    border: none;
-    cursor: pointer;
-    transition: 0.3s;
-    font-weight: bold;
-}
-.timer-input button:hover {
-    background: #e5e7eb;
-}
-.timer-display {
-    margin-top:8px;
-    font-size:16px;
-    color:#22c55e;
-    font-weight:bold;
-}
+        /* Header Styles */
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+            padding: 20px;
+        }
 
-/* ===== Status Readings ===== */
-.readings {
-    display:flex;
-    justify-content:center;
-    flex-wrap:wrap;
-    gap:30px;
-    margin:30px 0;
-}
-.readings h1 {
-    font-size:36px;
-    font-weight:bold;
-    color:#ffffff;
-    margin:0;
-    text-shadow:0 0 8px rgba(255,255,255,0.3);
-}
-.readings span {
-    font-size:38px;
-    color:#22c55e;
-}
+        .header h1 {
+            font-size: 3rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 10px;
+        }
 
-/* ===== OLED Canvas ===== */
-#oledCanvas {
-    border:2px solid #fff;
-    background:black;
-    touch-action:none;
-    image-rendering:pixelated;
-    margin-top:20px;
-    cursor:crosshair;
-}
-.oled-buttons {
-    display:flex;
-    justify-content:center;
-    gap:15px;
-    margin-top:15px;
-}
-.oled-buttons button {
-    font-size:16px;
-    padding:10px 20px;
-    border-radius:10px;
-    border:none;
-    background:#22c55e;
-    color:#fff;
-    cursor:pointer;
-    font-weight:bold;
-    transition:0.3s;
-}
-.oled-buttons button:hover {
-    background:#16a34a;
-}
+        .header p {
+            color: var(--gray);
+            font-size: 1.2rem;
+        }
 
-/* ===== Footer space adjustment ===== */
-.footer-space {
-    height:40px; /* professional bottom padding */
-}
-</style>
+        /* Dashboard Grid */
+        .dashboard {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 25px;
+            margin-bottom: 40px;
+        }
+
+        /* Card Styles */
+        .card {
+            background: rgba(30, 41, 59, 0.8);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 25px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, var(--primary), var(--secondary));
+        }
+
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
+        }
+
+        .card-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .card-icon {
+            width: 60px;
+            height: 60px;
+            border-radius: 15px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 15px;
+            font-size: 1.8rem;
+            background: rgba(59, 130, 246, 0.1);
+            border: 2px solid var(--primary);
+        }
+
+        .card-title {
+            font-size: 1.4rem;
+            font-weight: 600;
+            color: var(--light);
+        }
+
+        .card-subtitle {
+            color: var(--gray);
+            font-size: 0.9rem;
+        }
+
+        /* Toggle Switch */
+        .toggle-container {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin: 20px 0;
+        }
+
+        .toggle-switch {
+            position: relative;
+            width: 70px;
+            height: 35px;
+            background: var(--gray);
+            border-radius: 50px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .toggle-switch.active {
+            background: var(--success);
+        }
+
+        .toggle-slider {
+            position: absolute;
+            top: 3px;
+            left: 3px;
+            width: 29px;
+            height: 29px;
+            background: white;
+            border-radius: 50%;
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+        }
+
+        .toggle-switch.active .toggle-slider {
+            transform: translateX(35px);
+        }
+
+        .toggle-label {
+            font-weight: 600;
+            font-size: 1.1rem;
+        }
+
+        /* Timer Styles */
+        .timer-section {
+            margin-top: 20px;
+            padding-top: 20px;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .timer-inputs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .timer-input {
+            flex: 1;
+            position: relative;
+        }
+
+        .timer-input select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            background: rgba(15, 23, 42, 0.8);
+            color: var(--light);
+            font-size: 1rem;
+            cursor: pointer;
+            appearance: none;
+        }
+
+        .timer-input::after {
+            content: '▼';
+            position: absolute;
+            right: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--gray);
+            pointer-events: none;
+        }
+
+        .timer-display {
+            text-align: center;
+            padding: 10px;
+            background: rgba(15, 23, 42, 0.6);
+            border-radius: 10px;
+            font-family: 'Courier New', monospace;
+            font-size: 1.2rem;
+            font-weight: 600;
+            color: var(--success);
+            margin-bottom: 15px;
+        }
+
+        /* Button Styles */
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 10px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            width: 100%;
+        }
+
+        .btn-primary {
+            background: var(--primary);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: var(--primary-dark);
+            transform: translateY(-2px);
+        }
+
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.1);
+            color: var(--light);
+            border: 2px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        /* Sensor Readings */
+        .sensor-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin: 40px 0;
+        }
+
+        .sensor-card {
+            background: rgba(30, 41, 59, 0.8);
+            border-radius: 15px;
+            padding: 25px;
+            text-align: center;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .sensor-icon {
+            font-size: 2.5rem;
+            margin-bottom: 15px;
+            opacity: 0.9;
+        }
+
+        .sensor-value {
+            font-size: 2.2rem;
+            font-weight: 700;
+            margin: 10px 0;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .sensor-label {
+            color: var(--gray);
+            font-size: 1rem;
+        }
+
+        /* OLED Drawing */
+        .drawing-section {
+            margin-top: 40px;
+        }
+
+        .drawing-container {
+            background: rgba(15, 23, 42, 0.8);
+            border-radius: 20px;
+            padding: 25px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .canvas-wrapper {
+            display: flex;
+            justify-content: center;
+            margin: 20px 0;
+        }
+
+        #oledCanvas {
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            background: #000;
+            border-radius: 10px;
+            cursor: crosshair;
+            image-rendering: pixelated;
+        }
+
+        .drawing-controls {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 12px;
+            margin-top: 20px;
+        }
+
+        /* Footer */
+        .footer {
+            text-align: center;
+            margin-top: 50px;
+            padding: 20px;
+            color: var(--gray);
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .header h1 {
+                font-size: 2.2rem;
+            }
+            
+            .dashboard {
+                grid-template-columns: 1fr;
+            }
+            
+            .sensor-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        /* Animation */
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+
+        .pulse {
+            animation: pulse 2s infinite;
+        }
+
+        /* Status Indicators */
+        .status-online {
+            color: var(--success);
+        }
+
+        .status-offline {
+            color: var(--danger);
+        }
+    </style>
 </head>
 <body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <h1>🏠 Smart Home Control</h1>
+            <p>Control your home appliances remotely with real-time monitoring</p>
+        </div>
 
-<h2>Transmitter Control</h2>
-<div class="container">
-  <!-- Relay 1 -->
-  <div class="card">
-    <div id="icon1" class="icon">💡</div>
-    <div class="label">ROSHNI YANTRA 1</div>
-    <button id="b1" class="toggle-btn" onclick="toggle(1)">Toggle</button>
-    <div class="timer-input">
-      <select id="h1"></select> : 
-      <select id="m1"></select> : 
-      <select id="s1"></select>
-      <button onclick="setTimer(1)">Set</button>
+        <!-- Sensor Readings -->
+        <div class="sensor-grid">
+            <div class="sensor-card">
+                <div class="sensor-icon">🌡️</div>
+                <div class="sensor-value" id="temp">--°C</div>
+                <div class="sensor-label">Temperature</div>
+            </div>
+            <div class="sensor-card">
+                <div class="sensor-icon">💧</div>
+                <div class="sensor-value" id="hum">--%</div>
+                <div class="sensor-label">Humidity</div>
+            </div>
+            <div class="sensor-card">
+                <div class="sensor-icon">⚠️</div>
+                <div class="sensor-value" id="gas">--</div>
+                <div class="sensor-label">Gas Level</div>
+            </div>
+            <div class="sensor-card">
+                <div class="sensor-icon">📶</div>
+                <div class="sensor-value status-online">Online</div>
+                <div class="sensor-label">System Status</div>
+            </div>
+        </div>
+
+        <!-- Device Control Dashboard -->
+        <div class="dashboard">
+            <!-- Light 1 -->
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-icon">💡</div>
+                    <div>
+                        <div class="card-title">Smart Light 1</div>
+                        <div class="card-subtitle">Living Room</div>
+                    </div>
+                </div>
+                
+                <div class="toggle-container">
+                    <span class="toggle-label">Power</span>
+                    <div class="toggle-switch" id="toggle1" onclick="toggleDevice(1)">
+                        <div class="toggle-slider"></div>
+                    </div>
+                </div>
+
+                <div class="timer-section">
+                    <div class="timer-inputs">
+                        <div class="timer-input">
+                            <select id="h1">
+                                <option value="0">00h</option>
+                            </select>
+                        </div>
+                        <div class="timer-input">
+                            <select id="m1">
+                                <option value="0">00m</option>
+                            </select>
+                        </div>
+                        <div class="timer-input">
+                            <select id="s1">
+                                <option value="0">00s</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="timer-display" id="d1">Not Set</div>
+                    <button class="btn btn-primary" onclick="setTimer(1)">Set Timer</button>
+                </div>
+            </div>
+
+            <!-- Light 2 -->
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-icon">💡</div>
+                    <div>
+                        <div class="card-title">Smart Light 2</div>
+                        <div class="card-subtitle">Bedroom</div>
+                    </div>
+                </div>
+                
+                <div class="toggle-container">
+                    <span class="toggle-label">Power</span>
+                    <div class="toggle-switch" id="toggle2" onclick="toggleDevice(2)">
+                        <div class="toggle-slider"></div>
+                    </div>
+                </div>
+
+                <div class="timer-section">
+                    <div class="timer-inputs">
+                        <div class="timer-input">
+                            <select id="h2">
+                                <option value="0">00h</option>
+                            </select>
+                        </div>
+                        <div class="timer-input">
+                            <select id="m2">
+                                <option value="0">00m</option>
+                            </select>
+                        </div>
+                        <div class="timer-input">
+                            <select id="s2">
+                                <option value="0">00s</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="timer-display" id="d2">Not Set</div>
+                    <button class="btn btn-primary" onclick="setTimer(2)">Set Timer</button>
+                </div>
+            </div>
+
+            <!-- Fan -->
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-icon">🌀</div>
+                    <div>
+                        <div class="card-title">Smart Fan</div>
+                        <div class="card-subtitle">Living Area</div>
+                    </div>
+                </div>
+                
+                <div class="toggle-container">
+                    <span class="toggle-label">Power</span>
+                    <div class="toggle-switch" id="toggle3" onclick="toggleDevice(3)">
+                        <div class="toggle-slider"></div>
+                    </div>
+                </div>
+
+                <div class="timer-section">
+                    <div class="timer-inputs">
+                        <div class="timer-input">
+                            <select id="h3">
+                                <option value="0">00h</option>
+                            </select>
+                        </div>
+                        <div class="timer-input">
+                            <select id="m3">
+                                <option value="0">00m</option>
+                            </select>
+                        </div>
+                        <div class="timer-input">
+                            <select id="s3">
+                                <option value="0">00s</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="timer-display" id="d3">Not Set</div>
+                    <button class="btn btn-primary" onclick="setTimer(3)">Set Timer</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- OLED Drawing Section -->
+        <div class="drawing-section">
+            <div class="drawing-container">
+                <div class="card-header">
+                    <div class="card-icon">🎨</div>
+                    <div>
+                        <div class="card-title">OLED Drawing Panel</div>
+                        <div class="card-subtitle">Draw and display on your OLED screen</div>
+                    </div>
+                </div>
+                
+                <div class="canvas-wrapper">
+                    <canvas id="oledCanvas" width="128" height="64"></canvas>
+                </div>
+                
+                <div class="drawing-controls">
+                    <button class="btn btn-primary" onclick="sendDrawing()">Send to Display</button>
+                    <button class="btn btn-secondary" onclick="clearCanvas()">Clear Canvas</button>
+                    <button class="btn btn-secondary" onclick="undo()">Undo</button>
+                    <button class="btn btn-secondary" onclick="redo()">Redo</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="footer">
+            <p>Smart Home Control System • ESP32 Powered • © 2024</p>
+        </div>
     </div>
-    <div id="d1" class="timer-display"></div>
-  </div>
 
-  <!-- Relay 2 -->
-  <div class="card">
-    <div id="icon2" class="icon">💡</div>
-    <div class="label">ROSHNI YANTRA 2</div>
-    <button id="b2" class="toggle-btn" onclick="toggle(2)">Toggle</button>
-    <div class="timer-input">
-      <select id="h2"></select> : 
-      <select id="m2"></select> : 
-      <select id="s2"></select>
-      <button onclick="setTimer(2)">Set</button>
-    </div>
-    <div id="d2" class="timer-display"></div>
-  </div>
-
-  <!-- Relay 3 -->
-  <div class="card">
-    <div id="icon3" class="icon">🌀</div>
-    <div class="label">Pankha</div>
-    <button id="b3" class="toggle-btn" onclick="toggle(3)">Toggle</button>
-    <div class="timer-input">
-      <select id="h3"></select> : 
-      <select id="m3"></select> : 
-      <select id="s3"></select>
-      <button onclick="setTimer(3)">Set</button>
-    </div>
-    <div id="d3" class="timer-display"></div>
-  </div>
-</div>
-
-<div class="readings">
-  <h1>Taapmaan: <span id="temp">--</span> °C</h1>
-  <h1>Nami: <span id="hum">--</span> %</h1>
-  <h1>Gas: <span id="gas">--</span></h1>
-</div>
-
-<h3>OLED Drawing</h3>
-<canvas id="oledCanvas" width="128" height="64" style="width:1024px; height:512px;"></canvas>
-<div class="oled-buttons">
-  <button onclick="sendDrawing()">Send</button>
-  <button onclick="clearCanvas()">Clear</button>
-  <button onclick="undo()">Undo</button>
-  <button onclick="redo()">Redo</button>
-</div>
-
-<div class="footer-space"></div>
-<script>
-// ===== Fill timer selectors =====
-for(let i=0;i<=23;i++){ for(let j=1;j<=3;j++){ let s=i<10?'0'+i:i; document.getElementById('h'+j).innerHTML += `<option value='${i}'>${s}</option>`; } }
-for(let i=0;i<=59;i++){ for(let j=1;j<=3;j++){ let s=i<10?'0'+i:i; document.getElementById('m'+j).innerHTML += `<option value='${i}'>${s}</option>`; document.getElementById('s'+j).innerHTML += `<option value='${i}'>${s}</option>`; } }
-
-const ESP_IP = "http://192.168.0.102";   // <- isko apne ESP32 ka IP dalna h
-
-// niche saare fetch('/toggle') -> fetch(`${ESP_IP}/toggle`) ban gaye
-// baaki sab same hai, maine structure bilkul change nahi kiya
-
-// example ek function ka:
-function toggle(n){
-  fetch(`${ESP_IP}/toggle?led=${n}`)
-    .then(() => {
-      fetch(`${ESP_IP}/status`)
-        .then(r => r.json())
-        .then(j => {
-          let ledState = n===1 ? j.led1 : n===2 ? j.led2 : j.led3;
-          if(!ledState) resetTimer(n);
-        })
-        .catch(()=>{});
-    });
-}
-
-// ===== Apply Status to UI =====
-function apply(s1,s2,s3,t,h,g){
-  document.getElementById('icon1').className='icon'+(s1?' on':'');
-  document.getElementById('icon2').className='icon'+(s2?' on':'');
-  document.getElementById('icon3').className='icon'+(s3?' on':'');
-  document.getElementById('b1').innerText=s1?'Off kr':'On kr';
-  document.getElementById('b2').innerText=s2?'Off kr':'On kr';
-  document.getElementById('b3').innerText=s3?'Off kr':'On kr';
-  document.getElementById('temp').innerText=t>=0?t:'--';
-  document.getElementById('hum').innerText=h>=0?h:'--';
-  document.getElementById('gas').innerText=g;
-}
-
-// ===== Periodically Update Status =====
-setInterval(()=>{
-  fetch('/status')
-    .then(r=>r.json())
-    .then(j=>apply(j.led1,j.led2,j.led3,j.temp,j.hum,j.gas))
-    .catch(()=>{});
-},1000);
-
-
-// ===== Relay Timers =====
-let timers = [0,0,0];
-let countdowns = [null,null,null];
-
-function setTimer(n){
-  let h = parseInt(document.getElementById('h'+n).value) || 0;
-  let m = parseInt(document.getElementById('m'+n).value) || 0;
-  let s = parseInt(document.getElementById('s'+n).value) || 0;
-  timers[n-1] = h*3600 + m*60 + s;
-
-  if(timers[n-1] > 0){
-    // Relay ON
-    fetch('/toggle?led='+n)
-      .then(()=> startCountdown(n));
-  }
-}
-
-function resetTimer(n){
-  timers[n-1] = 0;
-  if(countdowns[n-1]){
-    clearInterval(countdowns[n-1]);
-    countdowns[n-1] = null;
-    document.getElementById('d'+n).innerText = '';
-  }
-}
-
-function startCountdown(n){
-  if(countdowns[n-1]) clearInterval(countdowns[n-1]);
-  let t = timers[n-1];
-
-  countdowns[n-1] = setInterval(()=>{
-    // Pehle relay ka current state check karo
-    fetch('/status')
-      .then(r=>r.json())
-      .then(j=>{
-        let ledState = n===1 ? j.led1 : n===2 ? j.led2 : j.led3;
-
-        // Agar relay manually OFF hua, timer stop
-        if(!ledState){
-          resetTimer(n);
-          return;
+    <script>
+        // Initialize timer dropdowns
+        function initializeTimerDropdowns() {
+            for (let i = 0; i <= 23; i++) {
+                for (let j = 1; j <= 3; j++) {
+                    const option = document.createElement('option');
+                    option.value = i;
+                    option.textContent = `${i.toString().padStart(2, '0')}h`;
+                    document.getElementById(`h${j}`).appendChild(option);
+                }
+            }
+            
+            for (let i = 0; i <= 59; i++) {
+                for (let j = 1; j <= 3; j++) {
+                    const optionM = document.createElement('option');
+                    optionM.value = i;
+                    optionM.textContent = `${i.toString().padStart(2, '0')}m`;
+                    document.getElementById(`m${j}`).appendChild(optionM);
+                    
+                    const optionS = document.createElement('option');
+                    optionS.value = i;
+                    optionS.textContent = `${i.toString().padStart(2, '0')}s`;
+                    document.getElementById(`s${j}`).appendChild(optionS);
+                }
+            }
         }
 
-        if(t <= 0){
-          // Timer khatam, relay OFF
-          fetch('/toggle?led='+n); 
-          resetTimer(n);
-          return;
+        // Device toggle function
+        function toggleDevice(deviceId) {
+            const toggle = document.getElementById(`toggle${deviceId}`);
+            toggle.classList.toggle('active');
+            
+            fetch(`/toggle?led=${deviceId}`)
+                .then(response => response.text())
+                .then(() => {
+                    updateDeviceStatus();
+                    // If turning off manually, reset timer
+                    if (!toggle.classList.contains('active')) {
+                        resetTimer(deviceId);
+                    }
+                })
+                .catch(error => console.error('Error:', error));
         }
 
-        t--;
-        timers[n-1] = t;
+        // Update all device statuses
+        function updateDeviceStatus() {
+            fetch('/status')
+                .then(response => response.json())
+                .then(data => {
+                    // Update toggle states
+                    document.getElementById('toggle1').classList.toggle('active', data.led1);
+                    document.getElementById('toggle2').classList.toggle('active', data.led2);
+                    document.getElementById('toggle3').classList.toggle('active', data.led3);
+                    
+                    // Update sensor readings
+                    document.getElementById('temp').textContent = data.temp >= 0 ? `${data.temp}°C` : '--°C';
+                    document.getElementById('hum').textContent = data.hum >= 0 ? `${data.hum}%` : '--%';
+                    document.getElementById('gas').textContent = data.gas || '--';
+                })
+                .catch(error => console.error('Error fetching status:', error));
+        }
 
-        let hh = Math.floor(t/3600),
-            mm = Math.floor((t%3600)/60),
-            ss = t%60;
-        document.getElementById('d'+n).innerText = 
-          `Time Left: ${hh<10?'0'+hh:hh}:${mm<10?'0'+mm:mm}:${ss<10?'0'+ss:ss}`;
-      })
-      .catch(()=>{}); // agar fetch fail ho jaye toh ignore
-  },1000);
-}
+        // Timer functionality
+        let timers = [0, 0, 0];
+        let countdowns = [null, null, null];
 
+        function setTimer(deviceId) {
+            const h = parseInt(document.getElementById(`h${deviceId}`).value) || 0;
+            const m = parseInt(document.getElementById(`m${deviceId}`).value) || 0;
+            const s = parseInt(document.getElementById(`s${deviceId}`).value) || 0;
+            
+            timers[deviceId - 1] = h * 3600 + m * 60 + s;
 
-// ===== Toggle Relay Manually =====
-function toggle(n){
-  fetch('/toggle?led='+n)
-    .then(()=>{
-      // Agar user manually OFF karta hai, timer reset ho jaye
-      fetch('/status')
-        .then(r=>r.json())
-        .then(j=>{
-          let ledState = n===1 ? j.led1 : n===2 ? j.led2 : j.led3;
-          if(!ledState) resetTimer(n);
-        })
-        .catch(()=>{});
-    });
-}
+            if (timers[deviceId - 1] > 0) {
+                // Turn on the device and start timer
+                if (!document.getElementById(`toggle${deviceId}`).classList.contains('active')) {
+                    toggleDevice(deviceId);
+                }
+                startCountdown(deviceId);
+            }
+        }
 
+        function resetTimer(deviceId) {
+            timers[deviceId - 1] = 0;
+            if (countdowns[deviceId - 1]) {
+                clearInterval(countdowns[deviceId - 1]);
+                countdowns[deviceId - 1] = null;
+                document.getElementById(`d${deviceId}`).textContent = 'Not Set';
+            }
+        }
 
-// ===== OLED Drawing with Undo/Redo =====
-const canvas=document.getElementById("oledCanvas");
-const ctx=canvas.getContext("2d"); ctx.fillStyle="white"; ctx.strokeStyle="white"; ctx.lineWidth=1.5; ctx.lineCap="round";
-let drawing=false, lastPos=null, undoStack=[], redoStack=[];
-function saveState(stack, keepRedo=false){ if(!keepRedo) redoStack=[]; stack.push(ctx.getImageData(0,0,canvas.width,canvas.height)); }
-function restoreState(stack, oppositeStack){ if(stack.length){ oppositeStack.push(ctx.getImageData(0,0,canvas.width,canvas.height)); ctx.putImageData(stack.pop(),0,0);} }
-function getPos(e){ const rect=canvas.getBoundingClientRect(); return { x:((e.clientX||e.touches[0].clientX)-rect.left)*(canvas.width/rect.width), y:((e.clientY||e.touches[0].clientY)-rect.top)*(canvas.height/rect.height) }; }
-function drawLine(start,end){ if(!start) start=end; ctx.beginPath(); ctx.moveTo(start.x,start.y); ctx.lineTo(end.x,end.y); ctx.stroke(); }
+        function startCountdown(deviceId) {
+            if (countdowns[deviceId - 1]) {
+                clearInterval(countdowns[deviceId - 1]);
+            }
 
-canvas.addEventListener("mousedown",e=>{drawing=true; lastPos=getPos(e); saveState(undoStack);});
-canvas.addEventListener("mouseup",()=>{drawing=false; lastPos=null;});
-canvas.addEventListener("mousemove",e=>{if(drawing){ let pos=getPos(e); drawLine(lastPos,pos); lastPos=pos;}});
+            let timeLeft = timers[deviceId - 1];
+            updateTimerDisplay(deviceId, timeLeft);
 
-canvas.addEventListener("touchstart",e=>{e.preventDefault(); drawing=true; lastPos=getPos(e); saveState(undoStack);});
-canvas.addEventListener("touchend",()=>{drawing=false; lastPos=null;});
-canvas.addEventListener("touchmove",e=>{e.preventDefault(); if(drawing){ let pos=getPos(e); drawLine(lastPos,pos); lastPos=pos;}});
+            countdowns[deviceId - 1] = setInterval(() => {
+                timeLeft--;
+                timers[deviceId - 1] = timeLeft;
 
-function undo(){ restoreState(undoStack, redoStack); }
-function redo(){ restoreState(redoStack, undoStack); }
-function clearCanvas(){ saveState(undoStack); ctx.clearRect(0,0,canvas.width,canvas.height);}
-function sendDrawing(){ const imageData=ctx.getImageData(0,0,canvas.width,canvas.height); const bitmap=[]; for(let y=0;y<canvas.height;y++){ const row=[]; for(let x=0;x<canvas.width;x++){ const idx=(y*canvas.width+x)*4; row.push(imageData.data[idx+3]>0?1:0);} bitmap.push(row);} fetch('/draw',{method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(bitmap)});}
+                if (timeLeft <= 0) {
+                    // Time's up, turn off device
+                    if (document.getElementById(`toggle${deviceId}`).classList.contains('active')) {
+                        toggleDevice(deviceId);
+                    }
+                    resetTimer(deviceId);
+                    return;
+                }
 
-// baaki saare function me bhi fetch('/...') -> fetch(`${ESP_IP}/...`) hi kiya hai
-</script>
+                updateTimerDisplay(deviceId, timeLeft);
+            }, 1000);
+        }
+
+        function updateTimerDisplay(deviceId, seconds) {
+            const h = Math.floor(seconds / 3600);
+            const m = Math.floor((seconds % 3600) / 60);
+            const s = seconds % 60;
+            document.getElementById(`d${deviceId}`).textContent = 
+                `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+        }
+
+        // OLED Drawing functionality
+        const canvas = document.getElementById('oledCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        // Set canvas style for better visibility
+        ctx.fillStyle = 'white';
+        ctx.strokeStyle = 'white';
+        ctx.lineWidth = 2;
+        ctx.lineCap = 'round';
+
+        let drawing = false;
+        let lastPos = null;
+        let undoStack = [];
+        let redoStack = [];
+
+        // Initialize canvas
+        ctx.fillStyle = 'black';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = 'white';
+
+        // Drawing event handlers
+        canvas.addEventListener('mousedown', startDrawing);
+        canvas.addEventListener('mousemove', draw);
+        canvas.addEventListener('mouseup', stopDrawing);
+        canvas.addEventListener('mouseout', stopDrawing);
+
+        // Touch support
+        canvas.addEventListener('touchstart', handleTouch);
+        canvas.addEventListener('touchmove', handleTouch);
+        canvas.addEventListener('touchend', stopDrawing);
+
+        function startDrawing(e) {
+            drawing = true;
+            lastPos = getPos(e);
+            saveState(undoStack);
+        }
+
+        function draw(e) {
+            if (!drawing) return;
+            e.preventDefault();
+            
+            const currentPos = getPos(e);
+            drawLine(lastPos, currentPos);
+            lastPos = currentPos;
+        }
+
+        function stopDrawing() {
+            drawing = false;
+            lastPos = null;
+        }
+
+        function handleTouch(e) {
+            e.preventDefault();
+            if (e.type === 'touchstart') {
+                startDrawing(e);
+            } else if (e.type === 'touchmove' && drawing) {
+                draw(e);
+            }
+        }
+
+        function getPos(e) {
+            const rect = canvas.getBoundingClientRect();
+            const clientX = e.clientX || (e.touches && e.touches[0].clientX);
+            const clientY = e.clientY || (e.touches && e.touches[0].clientY);
+            
+            return {
+                x: (clientX - rect.left) * (canvas.width / rect.width),
+                y: (clientY - rect.top) * (canvas.height / rect.height)
+            };
+        }
+
+        function drawLine(start, end) {
+            ctx.beginPath();
+            ctx.moveTo(start.x, start.y);
+            ctx.lineTo(end.x, end.y);
+            ctx.stroke();
+        }
+
+        function saveState(stack) {
+            redoStack = [];
+            stack.push(ctx.getImageData(0, 0, canvas.width, canvas.height));
+        }
+
+        function restoreState(fromStack, toStack) {
+            if (fromStack.length > 0) {
+                toStack.push(ctx.getImageData(0, 0, canvas.width, canvas.height));
+                ctx.putImageData(fromStack[fromStack.length - 1], 0, 0);
+                fromStack.pop();
+            }
+        }
+
+        function undo() {
+            restoreState(undoStack, redoStack);
+        }
+
+        function redo() {
+            restoreState(redoStack, undoStack);
+        }
+
+        function clearCanvas() {
+            saveState(undoStack);
+            ctx.fillStyle = 'black';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = 'white';
+        }
+
+        function sendDrawing() {
+            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            const bitmap = [];
+            
+            for (let y = 0; y < canvas.height; y++) {
+                const row = [];
+                for (let x = 0; x < canvas.width; x++) {
+                    const idx = (y * canvas.width + x) * 4;
+                    // Check if pixel is drawn (non-black)
+                    row.push(imageData.data[idx] > 0 || imageData.data[idx + 1] > 0 || imageData.data[idx + 2] > 0 ? 1 : 0);
+                }
+                bitmap.push(row);
+            }
+            
+            fetch('/draw', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(bitmap)
+            })
+            .then(response => {
+                if (response.ok) {
+                    alert('Drawing sent to OLED display successfully!');
+                }
+            })
+            .catch(error => console.error('Error sending drawing:', error));
+        }
+
+        // Initialize the application
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeTimerDropdowns();
+            updateDeviceStatus();
+            // Update status every 2 seconds
+            setInterval(updateDeviceStatus, 2000);
+        });
+    </script>
 </body>
 </html>
